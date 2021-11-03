@@ -7,8 +7,8 @@ type Component msg
     | Button { onClick : msg, label : String }
 
 
-toComparable : Component msg -> String
-toComparable component =
+toKey : Component msg -> String
+toKey component =
     case component of
         Button _ -> "button"
         Counter -> "counter"

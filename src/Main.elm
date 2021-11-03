@@ -1,142 +1,234 @@
-module Main exposing (main)
+module Main exposing (..)
 
-import Html
 import Browser
-import Dict exposing (Dict)
+import Element exposing (Element)
+import Component exposing (Component)
+import Pool exposing (Pool)
+import Html exposing (Html)
+import Counter
+import Counters
+import Button
 
-main : Program () Bootstrap Msg
+app =
+    Element.component Component.Counters
+
+
+type alias Model =
+    ( Tree String
+    , Pool ProcessModel
+    )
+
+type ProcessModel
+    = CounterModel Counter.Model
+    | CountersModel Counters.Model
+
+type Tree comparable
+    = ComponentWithProcess Int comparable (Tree comparable)
+    | Component comparable (Tree comparable)
+    | Node comparable (List (Tree comparable))
+    | Text
+
+type Msg
+    = SendToProcess Int ProcessMsg
+    | NoOp
+
+type ProcessMsg
+    = CounterMsg Counter.Msg
+    | CountersMsg Counters.Msg
+
+
+main : Program () Model Msg
 main =
-    Browser.element
-        { init = \_ -> init
+    Browser.sandbox
+        { init = init
         , update = update
         , view = view
-        , subscriptions = \_ -> Sub.none
         }
 
 
+components =
+    { counters = Element.Component Component.Counters
+    , counter = Element.Component Component.Counter
+    , button = \props -> Element.Component (Component.Button props)
+    }
+
+
+init : Model
 init =
     let
-        model =
-            { processes = Dict.empty
-            , lastProcessId = 0
-            }
+        go : Element Msg (Component Msg) -> Pool ProcessModel -> Model
+        go element processPool =
+            case element of
+                Element.Component component ->
+                    case component of
+                        Component.Button props ->
+                            let
+                                ( el, processPool_ ) =
+                                    go (Button.view components props) processPool
+                            in
+                            ( Component (Component.toComparable component) el
+                            , processPool_
+                            )
+
+                        Component.Counter ->
+                            let
+                                model =
+                                    Counter.init
+
+                                ( pid, processPool_ ) =
+                                    Pool.insert (CounterModel model) processPool
+
+                                ( el, processPool__ ) =
+                                    go (Counter.view components (always NoOp) model) processPool_
+                            in
+                            ( ComponentWithProcess pid (Component.toComparable component) el
+                            , processPool__
+                            )
+
+                        Component.Counters ->
+                            let
+                                model =
+                                    Counters.init
+
+                                ( pid, processPool_ ) =
+                                    Pool.insert (CountersModel model) processPool
+
+                                ( el, processPool__ ) =
+                                    go (Counters.view components (always NoOp) model) processPool_
+                            in
+                            ( ComponentWithProcess pid (Component.toComparable component) el
+                            , processPool__
+                            )
+
+                Element.Node t _ children ->
+                    let
+                        ( processPool_, children_ ) =
+                            List.foldl
+                                (\el ( p, kids ) ->
+                                    let ( kid, p_ ) = go el p in ( p_, kids ++ [ kid ] )
+                                )
+                                ( processPool, [] )
+                                children
+                    in
+                    ( Node t children_
+                    , processPool_
+                    )
+
+                Element.Text _ ->
+                    ( Text, processPool )
     in
-    ( model
-    , Cmd.none
-    )
+    go app Pool.empty
+
+
+view : Model -> Html Msg
+view ( rootTree, processPool ) =
+    let
+        go : Element Msg (Component Msg) -> Tree String -> Html Msg
+        go element tree =
+            case element of
+                Element.Component component ->
+                    case component of
+                        Component.Button props ->
+                            case tree of
+                                Component _ subTree ->
+                                    go (Button.view components props) subTree
+
+                                _ ->
+                                    Html.text ""
+
+                        Component.Counter ->
+                            case tree of
+                                ComponentWithProcess pid _ subTree ->
+                                    case Pool.get pid processPool of
+                                        Just (CounterModel model) ->
+                                            go (Counter.view components (always NoOp) model) subTree
+
+                                        _ ->
+                                            Html.text ""
+
+                                _ ->
+                                    Html.text ""
+
+                        Component.Counters ->
+                            case tree of
+                                ComponentWithProcess pid _ subTree ->
+                                    case Pool.get pid processPool of
+                                        Just (CountersModel model) ->
+                                            go (Counters.view components (always NoOp) model) subTree
+
+                                        _ ->
+                                            Html.text ""
+
+                                _ ->
+                                    Html.text ""
+
+                Element.Node t attributes children ->
+                    case tree of
+                        Node _ kids ->
+                            Html.node t attributes (List.map2 go children kids)
+
+                        _ ->
+                            Html.text ""
+
+                Element.Text s ->
+                    Html.text s
+    in
+    go app rootTree
+    -- Html.pre [] [ Html.text <| Debug.toString ( rootTree, processPool ) ]
+    -- let
+    --     go element tree =
+    --         case ( element, tree ) of
+    --             ( Element.Node attributes children, Node
+
+    -- in
+    -- go app rootTree
+
 
 update msg model =
-    ( model
-    , Cmd.none
-    )
-
-view model =
-    Html.text ""
+    model
 
 
-type alias PID =
-    Int
+-- type alias Component props model msg effect view =
+--     { init : props -> ( model, effect )
+--     , update : props -> msg -> model -> ( model, effect )
+--     , view : props -> model -> Element
+--     }
 
+-- type alias Page route model msg effect view meta =
+--     { init : route -> ( model, List effect )
+--     , update : props -> msg -> model -> ( model, List effect )
+--     , view : props -> model -> Tree view
+--     , meta : props -> model -> meta
+--     }
 
-type alias Bootstrap =
-    { processes : Dict Int Model
-    , lastProcessId : Int
-    }
+-- type alias Service config model msg effect =
+--     { init : config -> ( model, List effect )
+--     , update : msg -> model -> ( model, List effect )
+--     }
 
+-- type alias PID = Int
+-- type alias MID = Int
 
+-- port send : { payload : String, replyTo : Int } -> Cmd msg
+-- port receive : ({ payload : String, replyTo : Int } -> msg) -> Sub msg
 
----
+-- type alias Model process msg =
+--     { process : Dict PID process -- TODO: Kill kids when parent is removed
+--     , lastPid : PID -- Make into a data type together with Dict
+--     , msg : Dict MID (String -> Msg msg) -- TODO: Remove when process is killed
+--     , lastMid : MID
+--     }
 
+-- type Msg msg
+--     = SendTo PID msg
+--     | MsgDecodeError MID String
+--     | Kill PID
 
-type DomAttribute msg
-    = OnClick msg
+-- -- TODO: Add debugging to track ports and messages
 
-type Model
-    = ButtonModel ButtonModel
-    | AppModel AppModel
+-- -- TODO: En enkel diffing argo kommer man ganska långt med, eftersom vi bara ska spawna för komponenter. Det kommer inte vara lika många för andra.
+-- -- Men vi måste behålla förra så att vi kan diffa.
 
-type Msg
-    = ButtonMsg (ButtonMsg Msg)
-    | AppMsg AppMsg
-    | NoOp
-
-type Component msg
-    = Root (Component msg)
-    | Dom String (List (DomAttribute msg)) (List (Component msg))
-    | Text String
-    | Button msg String
-
-
----
-
-type alias AppProps =
-    {}
-
-type alias AppModel =
-    ()
-
-type AppMsg
-    = AppButtonClicked
-    | AppPropChanged AppProps
-
-app =
-    { init = appInit
-    , update = appUpdate
-    , view = appView
-    , onPropChange = AppPropChanged
-    }
-
-appInit props =
-    ( ()
-    , Cmd.none
-    )
-
-appUpdate msg props model =
-    case msg of
-        AppPropChanged _ ->
-            ( (), Cmd.none )
-
-        AppButtonClicked ->
-            ( (), Cmd.none )
-
-appView props model =
-    Dom "div"
-        []
-        [ Dom "h1" [] [ Text "Example app" ]
-        , Button AppButtonClicked "Click me"
-        ]
-
-
----
-
-type alias ButtonProps msg =
-    { onChange : msg
-    , label : String
-    }
-
-type alias ButtonModel =
-    ()
-
-type ButtonMsg msg
-    = ButtonPropChanged (ButtonProps msg)
-
-button =
-    { init = buttonInit
-    , update = buttonUpdate
-    , view = buttonView
-    , onPropChange = ButtonPropChanged
-    }
-
-
-buttonInit props =
-    ( (), Cmd.none)
-
-buttonUpdate msg props model =
-    ( (), Cmd.none )
-
-buttonView props model =
-    Dom "button"
-        [ OnClick props.onClick
-        ]
-        [ Text props.label
-        ]
+-- -- TODO: This is transformed into a tree of union type
+-- { div : List (Html.Attribute msg)
+-- , k

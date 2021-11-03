@@ -16,6 +16,10 @@ init : Model
 init =
     1
 
+--propsChanged : Props -> Model -> ( Model, Cmd msg )
+--propsChanged =
+--    --
+
 
 update : Msg -> Model -> Model
 update msg model =

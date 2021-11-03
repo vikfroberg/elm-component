@@ -17,6 +17,14 @@ init =
     0
 
 
+-- TODO: Call all processes with the global store when changed?
+-- No need to keep track of sending messages back.
+-- dataChanged : globalDataStore -> ( Model, Cmd msg )
+--     case Dict.get model.id globalDataStore of
+--         Just fanns -> { model | data = fanns }
+--         Nothing -> ({ model | data = laddar }, Cmd.send fråga efterData )
+
+
 update : Msg -> Model -> Model
 update msg model =
     case msg of

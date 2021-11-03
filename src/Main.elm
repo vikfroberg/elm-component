@@ -10,7 +10,13 @@ import Counters
 import Button
 import List.Extra
 
+
 -- TODO: Add keyed nodes and components
+
+-- TODO: Add debugging to track ports and messages
+-- port send : { payload : String, replyTo : Int } -> Cmd msg
+-- port receive : ({ payload : String, replyTo : Int } -> msg) -> Sub msg
+
 
 app =
     Element.component Component.Counters
@@ -44,7 +50,7 @@ main =
     Browser.sandbox
         { init = init
         , update = update
-        , view = Debug.log "model" >> view
+        , view = view
         }
 
 
@@ -52,6 +58,7 @@ components =
     { counters = Element.Component Component.Counters
     , counter = Element.Component Component.Counter
     , button = \props -> Element.Component (Component.Button props)
+    , submitButton = \onClick -> Element.Component (Component.Button { onClick = onClick, label = "Submit" })
     }
 
 
@@ -152,7 +159,7 @@ view { prevTree, processes } =
                                     go (Counter.view components (CounterMsg >> SendToProcess pid) model) subTree
 
                                 _ ->
-                                    Html.text "EEEH"
+                                    Html.text ""
 
                         Component.Counters ->
                             case Pool.get pid processes of
@@ -160,7 +167,7 @@ view { prevTree, processes } =
                                     go (Counters.view components (CountersMsg >> SendToProcess pid) model) subTree
 
                                 _ ->
-                                    Html.text "REally<?"
+                                    Html.text ""
 
                 ( Element.Node t attributes children, Node key subTrees ) ->
                     Html.node t attributes (List.map2 go children subTrees)
@@ -177,7 +184,7 @@ view { prevTree, processes } =
 -- TODO: En enkel diffing algo kommer man ganska långt med, eftersom vi bara ska spawna för komponenter.
 -- Det kommer inte vara lika många element som i dom diffing.
 update msg model =
-    case Debug.log "msg" msg of
+    case msg of
         SendToProcess pid processMsg ->
             case ( processMsg, Pool.get pid model.processes ) of
                 ( CounterMsg subMsg, Just (CounterModel subModel) ) ->
@@ -214,10 +221,8 @@ diffChildren elements trees processPool =
         let
             ( children, processPool_ ) =
                 diffChildren elements (List.take (List.length elements) trees) processPool
-
-            -- TODO: Clean up processes
         in
-        ( children, processPool_ )
+        ( children, killTrees (List.drop (List.length elements) trees) processPool_ )
     else
         List.foldl
             (\( e, t ) ( kids, p ) ->
@@ -258,8 +263,7 @@ diffElement element tree processPool =
                             _ ->
                                 Debug.todo "should never happen"
             else
-                -- TODO: Clean up old processes
-                initElement element processPool
+                initElement element (killTree tree processPool)
 
         ( Element.Node key attributes children, Node key_ subTrees ) ->
             if key == key_ then
@@ -269,15 +273,34 @@ diffElement element tree processPool =
                 in
                 ( Node key subTrees_, processPool_ )
             else
-                -- TODO: Clean up old processes
-                initElement element processPool
+                initElement element (killTree tree processPool)
 
         ( Element.Text s, Text ) ->
             ( Text, processPool )
 
         _  ->
-            -- TODO: Clean up old processes
-            initElement element processPool
+            initElement element (killTree tree processPool)
+
+
+killTrees nodes processPool =
+    case nodes of
+        [] ->
+            processPool
+
+        node :: restNodes ->
+            killTrees restNodes (killTree node processPool)
+
+
+killTree node processPool =
+    case Debug.log "node" node of
+        Component pid _ subTree ->
+            killTree subTree (Pool.remove pid processPool)
+
+        Node _ children ->
+            killTrees children processPool
+
+        Text ->
+            processPool
 
 
 diff : Model -> Model
@@ -289,10 +312,3 @@ diff { prevTree, processes } =
     { prevTree = newPrevTree
     , processes = newProcesses
     }
-
-
-
--- TODO: Add debugging to track ports and messages
--- port send : { payload : String, replyTo : Int } -> Cmd msg
--- port receive : ({ payload : String, replyTo : Int } -> msg) -> Sub msg
-

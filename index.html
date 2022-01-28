@@ -94,6 +94,271 @@ function A9(fun, a, b, c, d, e, f, g, h, i) {
 console.warn('Compiled in DEBUG mode. Follow the advice at https://elm-lang.org/0.19.1/optimize for better performance and smaller assets.');
 
 
+// EQUALITY
+
+function _Utils_eq(x, y)
+{
+	for (
+		var pair, stack = [], isEqual = _Utils_eqHelp(x, y, 0, stack);
+		isEqual && (pair = stack.pop());
+		isEqual = _Utils_eqHelp(pair.a, pair.b, 0, stack)
+		)
+	{}
+
+	return isEqual;
+}
+
+function _Utils_eqHelp(x, y, depth, stack)
+{
+	if (x === y)
+	{
+		return true;
+	}
+
+	if (typeof x !== 'object' || x === null || y === null)
+	{
+		typeof x === 'function' && _Debug_crash(5);
+		return false;
+	}
+
+	if (depth > 100)
+	{
+		stack.push(_Utils_Tuple2(x,y));
+		return true;
+	}
+
+	/**/
+	if (x.$ === 'Set_elm_builtin')
+	{
+		x = $elm$core$Set$toList(x);
+		y = $elm$core$Set$toList(y);
+	}
+	if (x.$ === 'RBNode_elm_builtin' || x.$ === 'RBEmpty_elm_builtin')
+	{
+		x = $elm$core$Dict$toList(x);
+		y = $elm$core$Dict$toList(y);
+	}
+	//*/
+
+	/**_UNUSED/
+	if (x.$ < 0)
+	{
+		x = $elm$core$Dict$toList(x);
+		y = $elm$core$Dict$toList(y);
+	}
+	//*/
+
+	for (var key in x)
+	{
+		if (!_Utils_eqHelp(x[key], y[key], depth + 1, stack))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+var _Utils_equal = F2(_Utils_eq);
+var _Utils_notEqual = F2(function(a, b) { return !_Utils_eq(a,b); });
+
+
+
+// COMPARISONS
+
+// Code in Generate/JavaScript.hs, Basics.js, and List.js depends on
+// the particular integer values assigned to LT, EQ, and GT.
+
+function _Utils_cmp(x, y, ord)
+{
+	if (typeof x !== 'object')
+	{
+		return x === y ? /*EQ*/ 0 : x < y ? /*LT*/ -1 : /*GT*/ 1;
+	}
+
+	/**/
+	if (x instanceof String)
+	{
+		var a = x.valueOf();
+		var b = y.valueOf();
+		return a === b ? 0 : a < b ? -1 : 1;
+	}
+	//*/
+
+	/**_UNUSED/
+	if (typeof x.$ === 'undefined')
+	//*/
+	/**/
+	if (x.$[0] === '#')
+	//*/
+	{
+		return (ord = _Utils_cmp(x.a, y.a))
+			? ord
+			: (ord = _Utils_cmp(x.b, y.b))
+				? ord
+				: _Utils_cmp(x.c, y.c);
+	}
+
+	// traverse conses until end of a list or a mismatch
+	for (; x.b && y.b && !(ord = _Utils_cmp(x.a, y.a)); x = x.b, y = y.b) {} // WHILE_CONSES
+	return ord || (x.b ? /*GT*/ 1 : y.b ? /*LT*/ -1 : /*EQ*/ 0);
+}
+
+var _Utils_lt = F2(function(a, b) { return _Utils_cmp(a, b) < 0; });
+var _Utils_le = F2(function(a, b) { return _Utils_cmp(a, b) < 1; });
+var _Utils_gt = F2(function(a, b) { return _Utils_cmp(a, b) > 0; });
+var _Utils_ge = F2(function(a, b) { return _Utils_cmp(a, b) >= 0; });
+
+var _Utils_compare = F2(function(x, y)
+{
+	var n = _Utils_cmp(x, y);
+	return n < 0 ? $elm$core$Basics$LT : n ? $elm$core$Basics$GT : $elm$core$Basics$EQ;
+});
+
+
+// COMMON VALUES
+
+var _Utils_Tuple0_UNUSED = 0;
+var _Utils_Tuple0 = { $: '#0' };
+
+function _Utils_Tuple2_UNUSED(a, b) { return { a: a, b: b }; }
+function _Utils_Tuple2(a, b) { return { $: '#2', a: a, b: b }; }
+
+function _Utils_Tuple3_UNUSED(a, b, c) { return { a: a, b: b, c: c }; }
+function _Utils_Tuple3(a, b, c) { return { $: '#3', a: a, b: b, c: c }; }
+
+function _Utils_chr_UNUSED(c) { return c; }
+function _Utils_chr(c) { return new String(c); }
+
+
+// RECORDS
+
+function _Utils_update(oldRecord, updatedFields)
+{
+	var newRecord = {};
+
+	for (var key in oldRecord)
+	{
+		newRecord[key] = oldRecord[key];
+	}
+
+	for (var key in updatedFields)
+	{
+		newRecord[key] = updatedFields[key];
+	}
+
+	return newRecord;
+}
+
+
+// APPEND
+
+var _Utils_append = F2(_Utils_ap);
+
+function _Utils_ap(xs, ys)
+{
+	// append Strings
+	if (typeof xs === 'string')
+	{
+		return xs + ys;
+	}
+
+	// append Lists
+	if (!xs.b)
+	{
+		return ys;
+	}
+	var root = _List_Cons(xs.a, ys);
+	xs = xs.b
+	for (var curr = root; xs.b; xs = xs.b) // WHILE_CONS
+	{
+		curr = curr.b = _List_Cons(xs.a, ys);
+	}
+	return root;
+}
+
+
+
+var _List_Nil_UNUSED = { $: 0 };
+var _List_Nil = { $: '[]' };
+
+function _List_Cons_UNUSED(hd, tl) { return { $: 1, a: hd, b: tl }; }
+function _List_Cons(hd, tl) { return { $: '::', a: hd, b: tl }; }
+
+
+var _List_cons = F2(_List_Cons);
+
+function _List_fromArray(arr)
+{
+	var out = _List_Nil;
+	for (var i = arr.length; i--; )
+	{
+		out = _List_Cons(arr[i], out);
+	}
+	return out;
+}
+
+function _List_toArray(xs)
+{
+	for (var out = []; xs.b; xs = xs.b) // WHILE_CONS
+	{
+		out.push(xs.a);
+	}
+	return out;
+}
+
+var _List_map2 = F3(function(f, xs, ys)
+{
+	for (var arr = []; xs.b && ys.b; xs = xs.b, ys = ys.b) // WHILE_CONSES
+	{
+		arr.push(A2(f, xs.a, ys.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_map3 = F4(function(f, xs, ys, zs)
+{
+	for (var arr = []; xs.b && ys.b && zs.b; xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
+	{
+		arr.push(A3(f, xs.a, ys.a, zs.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_map4 = F5(function(f, ws, xs, ys, zs)
+{
+	for (var arr = []; ws.b && xs.b && ys.b && zs.b; ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
+	{
+		arr.push(A4(f, ws.a, xs.a, ys.a, zs.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_map5 = F6(function(f, vs, ws, xs, ys, zs)
+{
+	for (var arr = []; vs.b && ws.b && xs.b && ys.b && zs.b; vs = vs.b, ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
+	{
+		arr.push(A5(f, vs.a, ws.a, xs.a, ys.a, zs.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_sortBy = F2(function(f, xs)
+{
+	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
+		return _Utils_cmp(f(a), f(b));
+	}));
+});
+
+var _List_sortWith = F2(function(f, xs)
+{
+	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
+		var ord = A2(f, a, b);
+		return ord === $elm$core$Basics$EQ ? 0 : ord === $elm$core$Basics$LT ? -1 : 1;
+	}));
+});
+
+
+
 var _JsArray_empty = [];
 
 function _JsArray_singleton(value)
@@ -539,271 +804,6 @@ function _Debug_regionToString(region)
 	}
 	return 'on lines ' + region.start.line + ' through ' + region.end.line;
 }
-
-
-
-// EQUALITY
-
-function _Utils_eq(x, y)
-{
-	for (
-		var pair, stack = [], isEqual = _Utils_eqHelp(x, y, 0, stack);
-		isEqual && (pair = stack.pop());
-		isEqual = _Utils_eqHelp(pair.a, pair.b, 0, stack)
-		)
-	{}
-
-	return isEqual;
-}
-
-function _Utils_eqHelp(x, y, depth, stack)
-{
-	if (x === y)
-	{
-		return true;
-	}
-
-	if (typeof x !== 'object' || x === null || y === null)
-	{
-		typeof x === 'function' && _Debug_crash(5);
-		return false;
-	}
-
-	if (depth > 100)
-	{
-		stack.push(_Utils_Tuple2(x,y));
-		return true;
-	}
-
-	/**/
-	if (x.$ === 'Set_elm_builtin')
-	{
-		x = $elm$core$Set$toList(x);
-		y = $elm$core$Set$toList(y);
-	}
-	if (x.$ === 'RBNode_elm_builtin' || x.$ === 'RBEmpty_elm_builtin')
-	{
-		x = $elm$core$Dict$toList(x);
-		y = $elm$core$Dict$toList(y);
-	}
-	//*/
-
-	/**_UNUSED/
-	if (x.$ < 0)
-	{
-		x = $elm$core$Dict$toList(x);
-		y = $elm$core$Dict$toList(y);
-	}
-	//*/
-
-	for (var key in x)
-	{
-		if (!_Utils_eqHelp(x[key], y[key], depth + 1, stack))
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
-var _Utils_equal = F2(_Utils_eq);
-var _Utils_notEqual = F2(function(a, b) { return !_Utils_eq(a,b); });
-
-
-
-// COMPARISONS
-
-// Code in Generate/JavaScript.hs, Basics.js, and List.js depends on
-// the particular integer values assigned to LT, EQ, and GT.
-
-function _Utils_cmp(x, y, ord)
-{
-	if (typeof x !== 'object')
-	{
-		return x === y ? /*EQ*/ 0 : x < y ? /*LT*/ -1 : /*GT*/ 1;
-	}
-
-	/**/
-	if (x instanceof String)
-	{
-		var a = x.valueOf();
-		var b = y.valueOf();
-		return a === b ? 0 : a < b ? -1 : 1;
-	}
-	//*/
-
-	/**_UNUSED/
-	if (typeof x.$ === 'undefined')
-	//*/
-	/**/
-	if (x.$[0] === '#')
-	//*/
-	{
-		return (ord = _Utils_cmp(x.a, y.a))
-			? ord
-			: (ord = _Utils_cmp(x.b, y.b))
-				? ord
-				: _Utils_cmp(x.c, y.c);
-	}
-
-	// traverse conses until end of a list or a mismatch
-	for (; x.b && y.b && !(ord = _Utils_cmp(x.a, y.a)); x = x.b, y = y.b) {} // WHILE_CONSES
-	return ord || (x.b ? /*GT*/ 1 : y.b ? /*LT*/ -1 : /*EQ*/ 0);
-}
-
-var _Utils_lt = F2(function(a, b) { return _Utils_cmp(a, b) < 0; });
-var _Utils_le = F2(function(a, b) { return _Utils_cmp(a, b) < 1; });
-var _Utils_gt = F2(function(a, b) { return _Utils_cmp(a, b) > 0; });
-var _Utils_ge = F2(function(a, b) { return _Utils_cmp(a, b) >= 0; });
-
-var _Utils_compare = F2(function(x, y)
-{
-	var n = _Utils_cmp(x, y);
-	return n < 0 ? $elm$core$Basics$LT : n ? $elm$core$Basics$GT : $elm$core$Basics$EQ;
-});
-
-
-// COMMON VALUES
-
-var _Utils_Tuple0_UNUSED = 0;
-var _Utils_Tuple0 = { $: '#0' };
-
-function _Utils_Tuple2_UNUSED(a, b) { return { a: a, b: b }; }
-function _Utils_Tuple2(a, b) { return { $: '#2', a: a, b: b }; }
-
-function _Utils_Tuple3_UNUSED(a, b, c) { return { a: a, b: b, c: c }; }
-function _Utils_Tuple3(a, b, c) { return { $: '#3', a: a, b: b, c: c }; }
-
-function _Utils_chr_UNUSED(c) { return c; }
-function _Utils_chr(c) { return new String(c); }
-
-
-// RECORDS
-
-function _Utils_update(oldRecord, updatedFields)
-{
-	var newRecord = {};
-
-	for (var key in oldRecord)
-	{
-		newRecord[key] = oldRecord[key];
-	}
-
-	for (var key in updatedFields)
-	{
-		newRecord[key] = updatedFields[key];
-	}
-
-	return newRecord;
-}
-
-
-// APPEND
-
-var _Utils_append = F2(_Utils_ap);
-
-function _Utils_ap(xs, ys)
-{
-	// append Strings
-	if (typeof xs === 'string')
-	{
-		return xs + ys;
-	}
-
-	// append Lists
-	if (!xs.b)
-	{
-		return ys;
-	}
-	var root = _List_Cons(xs.a, ys);
-	xs = xs.b
-	for (var curr = root; xs.b; xs = xs.b) // WHILE_CONS
-	{
-		curr = curr.b = _List_Cons(xs.a, ys);
-	}
-	return root;
-}
-
-
-
-var _List_Nil_UNUSED = { $: 0 };
-var _List_Nil = { $: '[]' };
-
-function _List_Cons_UNUSED(hd, tl) { return { $: 1, a: hd, b: tl }; }
-function _List_Cons(hd, tl) { return { $: '::', a: hd, b: tl }; }
-
-
-var _List_cons = F2(_List_Cons);
-
-function _List_fromArray(arr)
-{
-	var out = _List_Nil;
-	for (var i = arr.length; i--; )
-	{
-		out = _List_Cons(arr[i], out);
-	}
-	return out;
-}
-
-function _List_toArray(xs)
-{
-	for (var out = []; xs.b; xs = xs.b) // WHILE_CONS
-	{
-		out.push(xs.a);
-	}
-	return out;
-}
-
-var _List_map2 = F3(function(f, xs, ys)
-{
-	for (var arr = []; xs.b && ys.b; xs = xs.b, ys = ys.b) // WHILE_CONSES
-	{
-		arr.push(A2(f, xs.a, ys.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_map3 = F4(function(f, xs, ys, zs)
-{
-	for (var arr = []; xs.b && ys.b && zs.b; xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
-	{
-		arr.push(A3(f, xs.a, ys.a, zs.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_map4 = F5(function(f, ws, xs, ys, zs)
-{
-	for (var arr = []; ws.b && xs.b && ys.b && zs.b; ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
-	{
-		arr.push(A4(f, ws.a, xs.a, ys.a, zs.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_map5 = F6(function(f, vs, ws, xs, ys, zs)
-{
-	for (var arr = []; vs.b && ws.b && xs.b && ys.b && zs.b; vs = vs.b, ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
-	{
-		arr.push(A5(f, vs.a, ws.a, xs.a, ys.a, zs.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_sortBy = F2(function(f, xs)
-{
-	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
-		return _Utils_cmp(f(a), f(b));
-	}));
-});
-
-var _List_sortWith = F2(function(f, xs)
-{
-	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
-		var ord = A2(f, a, b);
-		return ord === $elm$core$Basics$EQ ? 0 : ord === $elm$core$Basics$LT ? -1 : 1;
-	}));
-});
 
 
 
@@ -4952,46 +4952,10 @@ function _Browser_load(url)
 		}
 	}));
 }
-var $author$project$Component$Counters = {$: 'Counters'};
-var $author$project$Element$Component = function (a) {
-	return {$: 'Component', a: a};
-};
-var $author$project$Element$component = function (component_) {
-	return $author$project$Element$Component(component_);
-};
-var $author$project$Main$app = $author$project$Element$component($author$project$Component$Counters);
-var $author$project$Pool$Pool = F2(
-	function (a, b) {
-		return {$: 'Pool', a: a, b: b};
-	});
-var $elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
-var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
-var $author$project$Pool$empty = A2($author$project$Pool$Pool, 1, $elm$core$Dict$empty);
+var $elm$core$Basics$EQ = {$: 'EQ'};
+var $elm$core$Basics$GT = {$: 'GT'};
+var $elm$core$Basics$LT = {$: 'LT'};
 var $elm$core$List$cons = _List_cons;
-var $elm$core$Elm$JsArray$foldr = _JsArray_foldr;
-var $elm$core$Array$foldr = F3(
-	function (func, baseCase, _v0) {
-		var tree = _v0.c;
-		var tail = _v0.d;
-		var helper = F2(
-			function (node, acc) {
-				if (node.$ === 'SubTree') {
-					var subTree = node.a;
-					return A3($elm$core$Elm$JsArray$foldr, helper, acc, subTree);
-				} else {
-					var values = node.a;
-					return A3($elm$core$Elm$JsArray$foldr, func, acc, values);
-				}
-			});
-		return A3(
-			$elm$core$Elm$JsArray$foldr,
-			helper,
-			A3($elm$core$Elm$JsArray$foldr, func, baseCase, tail),
-			tree);
-	});
-var $elm$core$Array$toList = function (array) {
-	return A3($elm$core$Array$foldr, $elm$core$List$cons, _List_Nil, array);
-};
 var $elm$core$Dict$foldr = F3(
 	function (func, acc, t) {
 		foldr:
@@ -5044,220 +5008,29 @@ var $elm$core$Set$toList = function (_v0) {
 	var dict = _v0.a;
 	return $elm$core$Dict$keys(dict);
 };
-var $elm$core$Basics$EQ = {$: 'EQ'};
-var $elm$core$Basics$GT = {$: 'GT'};
-var $elm$core$Basics$LT = {$: 'LT'};
-var $author$project$Main$Component = F3(
-	function (a, b, c) {
-		return {$: 'Component', a: a, b: b, c: c};
+var $elm$core$Elm$JsArray$foldr = _JsArray_foldr;
+var $elm$core$Array$foldr = F3(
+	function (func, baseCase, _v0) {
+		var tree = _v0.c;
+		var tail = _v0.d;
+		var helper = F2(
+			function (node, acc) {
+				if (node.$ === 'SubTree') {
+					var subTree = node.a;
+					return A3($elm$core$Elm$JsArray$foldr, helper, acc, subTree);
+				} else {
+					var values = node.a;
+					return A3($elm$core$Elm$JsArray$foldr, func, acc, values);
+				}
+			});
+		return A3(
+			$elm$core$Elm$JsArray$foldr,
+			helper,
+			A3($elm$core$Elm$JsArray$foldr, func, baseCase, tail),
+			tree);
 	});
-var $author$project$Main$CounterModel = function (a) {
-	return {$: 'CounterModel', a: a};
-};
-var $author$project$Main$CounterMsg = function (a) {
-	return {$: 'CounterMsg', a: a};
-};
-var $author$project$Main$CountersModel = function (a) {
-	return {$: 'CountersModel', a: a};
-};
-var $author$project$Main$CountersMsg = function (a) {
-	return {$: 'CountersMsg', a: a};
-};
-var $author$project$Main$Node = F2(
-	function (a, b) {
-		return {$: 'Node', a: a, b: b};
-	});
-var $author$project$Main$SendToProcess = F2(
-	function (a, b) {
-		return {$: 'SendToProcess', a: a, b: b};
-	});
-var $author$project$Main$Text = {$: 'Text'};
-var $elm$core$Basics$append = _Utils_append;
-var $author$project$Component$Button = function (a) {
-	return {$: 'Button', a: a};
-};
-var $author$project$Component$Counter = {$: 'Counter'};
-var $author$project$Main$components = {
-	button: function (props) {
-		return $author$project$Element$Component(
-			$author$project$Component$Button(props));
-	},
-	counter: $author$project$Element$Component($author$project$Component$Counter),
-	counters: $author$project$Element$Component($author$project$Component$Counters),
-	submitButton: function (onClick) {
-		return $author$project$Element$Component(
-			$author$project$Component$Button(
-				{label: 'Submit', onClick: onClick}));
-	}
-};
-var $elm$core$Basics$composeR = F3(
-	function (f, g, x) {
-		return g(
-			f(x));
-	});
-var $elm$core$List$foldl = F3(
-	function (func, acc, list) {
-		foldl:
-		while (true) {
-			if (!list.b) {
-				return acc;
-			} else {
-				var x = list.a;
-				var xs = list.b;
-				var $temp$func = func,
-					$temp$acc = A2(func, x, acc),
-					$temp$list = xs;
-				func = $temp$func;
-				acc = $temp$acc;
-				list = $temp$list;
-				continue foldl;
-			}
-		}
-	});
-var $author$project$Counter$init = 0;
-var $author$project$Counters$init = 1;
-var $elm$core$Basics$add = _Basics_add;
-var $elm$core$Dict$Black = {$: 'Black'};
-var $elm$core$Dict$RBNode_elm_builtin = F5(
-	function (a, b, c, d, e) {
-		return {$: 'RBNode_elm_builtin', a: a, b: b, c: c, d: d, e: e};
-	});
-var $elm$core$Dict$Red = {$: 'Red'};
-var $elm$core$Dict$balance = F5(
-	function (color, key, value, left, right) {
-		if ((right.$ === 'RBNode_elm_builtin') && (right.a.$ === 'Red')) {
-			var _v1 = right.a;
-			var rK = right.b;
-			var rV = right.c;
-			var rLeft = right.d;
-			var rRight = right.e;
-			if ((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) {
-				var _v3 = left.a;
-				var lK = left.b;
-				var lV = left.c;
-				var lLeft = left.d;
-				var lRight = left.e;
-				return A5(
-					$elm$core$Dict$RBNode_elm_builtin,
-					$elm$core$Dict$Red,
-					key,
-					value,
-					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, lK, lV, lLeft, lRight),
-					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, rK, rV, rLeft, rRight));
-			} else {
-				return A5(
-					$elm$core$Dict$RBNode_elm_builtin,
-					color,
-					rK,
-					rV,
-					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, key, value, left, rLeft),
-					rRight);
-			}
-		} else {
-			if ((((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) && (left.d.$ === 'RBNode_elm_builtin')) && (left.d.a.$ === 'Red')) {
-				var _v5 = left.a;
-				var lK = left.b;
-				var lV = left.c;
-				var _v6 = left.d;
-				var _v7 = _v6.a;
-				var llK = _v6.b;
-				var llV = _v6.c;
-				var llLeft = _v6.d;
-				var llRight = _v6.e;
-				var lRight = left.e;
-				return A5(
-					$elm$core$Dict$RBNode_elm_builtin,
-					$elm$core$Dict$Red,
-					lK,
-					lV,
-					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, llK, llV, llLeft, llRight),
-					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, key, value, lRight, right));
-			} else {
-				return A5($elm$core$Dict$RBNode_elm_builtin, color, key, value, left, right);
-			}
-		}
-	});
-var $elm$core$Basics$compare = _Utils_compare;
-var $elm$core$Dict$insertHelp = F3(
-	function (key, value, dict) {
-		if (dict.$ === 'RBEmpty_elm_builtin') {
-			return A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, key, value, $elm$core$Dict$RBEmpty_elm_builtin, $elm$core$Dict$RBEmpty_elm_builtin);
-		} else {
-			var nColor = dict.a;
-			var nKey = dict.b;
-			var nValue = dict.c;
-			var nLeft = dict.d;
-			var nRight = dict.e;
-			var _v1 = A2($elm$core$Basics$compare, key, nKey);
-			switch (_v1.$) {
-				case 'LT':
-					return A5(
-						$elm$core$Dict$balance,
-						nColor,
-						nKey,
-						nValue,
-						A3($elm$core$Dict$insertHelp, key, value, nLeft),
-						nRight);
-				case 'EQ':
-					return A5($elm$core$Dict$RBNode_elm_builtin, nColor, nKey, value, nLeft, nRight);
-				default:
-					return A5(
-						$elm$core$Dict$balance,
-						nColor,
-						nKey,
-						nValue,
-						nLeft,
-						A3($elm$core$Dict$insertHelp, key, value, nRight));
-			}
-		}
-	});
-var $elm$core$Dict$insert = F3(
-	function (key, value, dict) {
-		var _v0 = A3($elm$core$Dict$insertHelp, key, value, dict);
-		if ((_v0.$ === 'RBNode_elm_builtin') && (_v0.a.$ === 'Red')) {
-			var _v1 = _v0.a;
-			var k = _v0.b;
-			var v = _v0.c;
-			var l = _v0.d;
-			var r = _v0.e;
-			return A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, k, v, l, r);
-		} else {
-			var x = _v0;
-			return x;
-		}
-	});
-var $author$project$Pool$insert = F2(
-	function (process, _v0) {
-		var currentId = _v0.a;
-		var dict = _v0.b;
-		return _Utils_Tuple2(
-			currentId,
-			A2(
-				$author$project$Pool$Pool,
-				currentId + 1,
-				A3($elm$core$Dict$insert, currentId, process, dict)));
-	});
-var $author$project$Pool$null = 0;
-var $author$project$Component$toKey = function (component) {
-	switch (component.$) {
-		case 'Button':
-			return 'button';
-		case 'Counter':
-			return 'counter';
-		default:
-			return 'counters';
-	}
-};
-var $author$project$Element$Node = F3(
-	function (a, b, c) {
-		return {$: 'Node', a: a, b: b, c: c};
-	});
-var $author$project$Element$button = F2(
-	function (attributes, children) {
-		return A3($author$project$Element$Node, 'button', attributes, children);
-	});
-var $elm$virtual_dom$VirtualDom$Normal = function (a) {
-	return {$: 'Normal', a: a};
+var $elm$core$Array$toList = function (array) {
+	return A3($elm$core$Array$foldr, $elm$core$List$cons, _List_Nil, array);
 };
 var $elm$core$Result$Err = function (a) {
 	return {$: 'Err', a: a};
@@ -5281,12 +5054,14 @@ var $elm$json$Json$Decode$OneOf = function (a) {
 	return {$: 'OneOf', a: a};
 };
 var $elm$core$Basics$False = {$: 'False'};
+var $elm$core$Basics$add = _Basics_add;
 var $elm$core$Maybe$Just = function (a) {
 	return {$: 'Just', a: a};
 };
 var $elm$core$Maybe$Nothing = {$: 'Nothing'};
 var $elm$core$String$all = _String_all;
 var $elm$core$Basics$and = _Basics_and;
+var $elm$core$Basics$append = _Utils_append;
 var $elm$json$Json$Encode$encode = _Json_encode;
 var $elm$core$String$fromInt = _String_fromNumber;
 var $elm$core$String$join = F2(
@@ -5307,6 +5082,25 @@ var $elm$json$Json$Decode$indent = function (str) {
 		'\n    ',
 		A2($elm$core$String$split, '\n', str));
 };
+var $elm$core$List$foldl = F3(
+	function (func, acc, list) {
+		foldl:
+		while (true) {
+			if (!list.b) {
+				return acc;
+			} else {
+				var x = list.a;
+				var xs = list.b;
+				var $temp$func = func,
+					$temp$acc = A2(func, x, acc),
+					$temp$list = xs;
+				func = $temp$func;
+				acc = $temp$acc;
+				list = $temp$list;
+				continue foldl;
+			}
+		}
+	});
 var $elm$core$List$length = function (xs) {
 	return A3(
 		$elm$core$List$foldl,
@@ -5648,234 +5442,6 @@ var $elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 			return 3;
 	}
 };
-var $elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
-var $elm$html$Html$Events$on = F2(
-	function (event, decoder) {
-		return A2(
-			$elm$virtual_dom$VirtualDom$on,
-			event,
-			$elm$virtual_dom$VirtualDom$Normal(decoder));
-	});
-var $elm$html$Html$Events$onClick = function (msg) {
-	return A2(
-		$elm$html$Html$Events$on,
-		'click',
-		$elm$json$Json$Decode$succeed(msg));
-};
-var $author$project$Element$Events$onClick = $elm$html$Html$Events$onClick;
-var $author$project$Element$Text = function (a) {
-	return {$: 'Text', a: a};
-};
-var $author$project$Element$text = $author$project$Element$Text;
-var $author$project$Button$view = F2(
-	function (_v0, _v1) {
-		var onClick = _v1.onClick;
-		var label = _v1.label;
-		return A2(
-			$author$project$Element$button,
-			_List_fromArray(
-				[
-					$author$project$Element$Events$onClick(onClick)
-				]),
-			_List_fromArray(
-				[
-					$author$project$Element$text(label)
-				]));
-	});
-var $author$project$Counter$Decrement = {$: 'Decrement'};
-var $author$project$Counter$Increment = {$: 'Increment'};
-var $author$project$Element$div = F2(
-	function (attributes, children) {
-		return A3($author$project$Element$Node, 'div', attributes, children);
-	});
-var $author$project$Counter$view = F3(
-	function (_v0, toSelf, model) {
-		var button = _v0.button;
-		return A2(
-			$author$project$Element$div,
-			_List_Nil,
-			_List_fromArray(
-				[
-					button(
-					{
-						label: 'Decrement',
-						onClick: toSelf($author$project$Counter$Decrement)
-					}),
-					$author$project$Element$text(
-					$elm$core$String$fromInt(model)),
-					button(
-					{
-						label: 'Increment',
-						onClick: toSelf($author$project$Counter$Increment)
-					})
-				]));
-	});
-var $author$project$Counters$Decrement = {$: 'Decrement'};
-var $author$project$Counters$Increment = {$: 'Increment'};
-var $elm$core$List$repeatHelp = F3(
-	function (result, n, value) {
-		repeatHelp:
-		while (true) {
-			if (n <= 0) {
-				return result;
-			} else {
-				var $temp$result = A2($elm$core$List$cons, value, result),
-					$temp$n = n - 1,
-					$temp$value = value;
-				result = $temp$result;
-				n = $temp$n;
-				value = $temp$value;
-				continue repeatHelp;
-			}
-		}
-	});
-var $elm$core$List$repeat = F2(
-	function (n, value) {
-		return A3($elm$core$List$repeatHelp, _List_Nil, n, value);
-	});
-var $author$project$Counters$view = F3(
-	function (_v0, toSelf, model) {
-		var button = _v0.button;
-		var counter = _v0.counter;
-		return A2(
-			$author$project$Element$div,
-			_List_Nil,
-			_List_fromArray(
-				[
-					button(
-					{
-						label: 'Decrement',
-						onClick: toSelf($author$project$Counters$Decrement)
-					}),
-					button(
-					{
-						label: 'Increment',
-						onClick: toSelf($author$project$Counters$Increment)
-					}),
-					A2(
-					$author$project$Element$div,
-					_List_Nil,
-					A2($elm$core$List$repeat, model, counter))
-				]));
-	});
-var $author$project$Main$initChildren = F2(
-	function (children, processPool) {
-		return A3(
-			$elm$core$List$foldl,
-			F2(
-				function (el, _v8) {
-					var kids = _v8.a;
-					var p = _v8.b;
-					var _v9 = A2($author$project$Main$initElement, el, p);
-					var kid = _v9.a;
-					var p_ = _v9.b;
-					return _Utils_Tuple2(
-						_Utils_ap(
-							kids,
-							_List_fromArray(
-								[kid])),
-						p_);
-				}),
-			_Utils_Tuple2(_List_Nil, processPool),
-			children);
-	});
-var $author$project$Main$initElement = F2(
-	function (element, processPool) {
-		switch (element.$) {
-			case 'Component':
-				var component = element.a;
-				switch (component.$) {
-					case 'Button':
-						var props = component.a;
-						var _v2 = A2(
-							$author$project$Main$initElement,
-							A2($author$project$Button$view, $author$project$Main$components, props),
-							processPool);
-						var el = _v2.a;
-						var processPool_ = _v2.b;
-						return _Utils_Tuple2(
-							A3(
-								$author$project$Main$Component,
-								$author$project$Pool$null,
-								$author$project$Component$toKey(component),
-								el),
-							processPool_);
-					case 'Counter':
-						var model = $author$project$Counter$init;
-						var _v3 = A2(
-							$author$project$Pool$insert,
-							$author$project$Main$CounterModel(model),
-							processPool);
-						var pid = _v3.a;
-						var processPool_ = _v3.b;
-						var _v4 = A2(
-							$author$project$Main$initElement,
-							A3(
-								$author$project$Counter$view,
-								$author$project$Main$components,
-								A2(
-									$elm$core$Basics$composeR,
-									$author$project$Main$CounterMsg,
-									$author$project$Main$SendToProcess(pid)),
-								model),
-							processPool_);
-						var el = _v4.a;
-						var processPool__ = _v4.b;
-						return _Utils_Tuple2(
-							A3(
-								$author$project$Main$Component,
-								pid,
-								$author$project$Component$toKey(component),
-								el),
-							processPool__);
-					default:
-						var model = $author$project$Counters$init;
-						var _v5 = A2(
-							$author$project$Pool$insert,
-							$author$project$Main$CountersModel(model),
-							processPool);
-						var pid = _v5.a;
-						var processPool_ = _v5.b;
-						var _v6 = A2(
-							$author$project$Main$initElement,
-							A3(
-								$author$project$Counters$view,
-								$author$project$Main$components,
-								A2(
-									$elm$core$Basics$composeR,
-									$author$project$Main$CountersMsg,
-									$author$project$Main$SendToProcess(pid)),
-								model),
-							processPool_);
-						var el = _v6.a;
-						var processPool__ = _v6.b;
-						return _Utils_Tuple2(
-							A3(
-								$author$project$Main$Component,
-								pid,
-								$author$project$Component$toKey(component),
-								el),
-							processPool__);
-				}
-			case 'Node':
-				var t = element.a;
-				var children = element.c;
-				var _v7 = A2($author$project$Main$initChildren, children, processPool);
-				var children_ = _v7.a;
-				var processPool_ = _v7.b;
-				return _Utils_Tuple2(
-					A2($author$project$Main$Node, t, children_),
-					processPool_);
-			default:
-				return _Utils_Tuple2($author$project$Main$Text, processPool);
-		}
-	});
-var $author$project$Main$init = function () {
-	var _v0 = A2($author$project$Main$initElement, $author$project$Main$app, $author$project$Pool$empty);
-	var prevTree = _v0.a;
-	var processes = _v0.b;
-	return {prevTree: prevTree, processes: processes};
-}();
 var $elm$browser$Debugger$Expando$ArraySeq = {$: 'ArraySeq'};
 var $elm$browser$Debugger$Overlay$BlockMost = {$: 'BlockMost'};
 var $elm$browser$Debugger$Overlay$BlockNone = {$: 'BlockNone'};
@@ -5943,6 +5509,23 @@ var $elm$html$Html$Attributes$stringProperty = F2(
 			$elm$json$Json$Encode$string(string));
 	});
 var $elm$html$Html$Attributes$id = $elm$html$Html$Attributes$stringProperty('id');
+var $elm$virtual_dom$VirtualDom$Normal = function (a) {
+	return {$: 'Normal', a: a};
+};
+var $elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var $elm$html$Html$Events$on = F2(
+	function (event, decoder) {
+		return A2(
+			$elm$virtual_dom$VirtualDom$on,
+			event,
+			$elm$virtual_dom$VirtualDom$Normal(decoder));
+	});
+var $elm$html$Html$Events$onClick = function (msg) {
+	return A2(
+		$elm$html$Html$Events$on,
+		'click',
+		$elm$json$Json$Decode$succeed(msg));
+};
 var $elm$html$Html$span = _VirtualDom_node('span');
 var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
 var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
@@ -6629,6 +6212,8 @@ var $elm$browser$Debugger$Main$cornerView = function (model) {
 		$elm$browser$Debugger$History$size(model.history),
 		model.overlay);
 };
+var $elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
+var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
 var $elm$core$Set$foldr = F3(
 	function (func, initialState, _v0) {
 		var dict = _v0.a;
@@ -6655,6 +6240,115 @@ var $elm$browser$Debugger$Main$getUserModel = function (model) {
 };
 var $elm$browser$Debugger$Main$initialWindowHeight = 420;
 var $elm$browser$Debugger$Main$initialWindowWidth = 900;
+var $elm$core$Dict$Black = {$: 'Black'};
+var $elm$core$Dict$RBNode_elm_builtin = F5(
+	function (a, b, c, d, e) {
+		return {$: 'RBNode_elm_builtin', a: a, b: b, c: c, d: d, e: e};
+	});
+var $elm$core$Dict$Red = {$: 'Red'};
+var $elm$core$Dict$balance = F5(
+	function (color, key, value, left, right) {
+		if ((right.$ === 'RBNode_elm_builtin') && (right.a.$ === 'Red')) {
+			var _v1 = right.a;
+			var rK = right.b;
+			var rV = right.c;
+			var rLeft = right.d;
+			var rRight = right.e;
+			if ((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) {
+				var _v3 = left.a;
+				var lK = left.b;
+				var lV = left.c;
+				var lLeft = left.d;
+				var lRight = left.e;
+				return A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					$elm$core$Dict$Red,
+					key,
+					value,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, lK, lV, lLeft, lRight),
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, rK, rV, rLeft, rRight));
+			} else {
+				return A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					color,
+					rK,
+					rV,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, key, value, left, rLeft),
+					rRight);
+			}
+		} else {
+			if ((((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) && (left.d.$ === 'RBNode_elm_builtin')) && (left.d.a.$ === 'Red')) {
+				var _v5 = left.a;
+				var lK = left.b;
+				var lV = left.c;
+				var _v6 = left.d;
+				var _v7 = _v6.a;
+				var llK = _v6.b;
+				var llV = _v6.c;
+				var llLeft = _v6.d;
+				var llRight = _v6.e;
+				var lRight = left.e;
+				return A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					$elm$core$Dict$Red,
+					lK,
+					lV,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, llK, llV, llLeft, llRight),
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, key, value, lRight, right));
+			} else {
+				return A5($elm$core$Dict$RBNode_elm_builtin, color, key, value, left, right);
+			}
+		}
+	});
+var $elm$core$Basics$compare = _Utils_compare;
+var $elm$core$Dict$insertHelp = F3(
+	function (key, value, dict) {
+		if (dict.$ === 'RBEmpty_elm_builtin') {
+			return A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, key, value, $elm$core$Dict$RBEmpty_elm_builtin, $elm$core$Dict$RBEmpty_elm_builtin);
+		} else {
+			var nColor = dict.a;
+			var nKey = dict.b;
+			var nValue = dict.c;
+			var nLeft = dict.d;
+			var nRight = dict.e;
+			var _v1 = A2($elm$core$Basics$compare, key, nKey);
+			switch (_v1.$) {
+				case 'LT':
+					return A5(
+						$elm$core$Dict$balance,
+						nColor,
+						nKey,
+						nValue,
+						A3($elm$core$Dict$insertHelp, key, value, nLeft),
+						nRight);
+				case 'EQ':
+					return A5($elm$core$Dict$RBNode_elm_builtin, nColor, nKey, value, nLeft, nRight);
+				default:
+					return A5(
+						$elm$core$Dict$balance,
+						nColor,
+						nKey,
+						nValue,
+						nLeft,
+						A3($elm$core$Dict$insertHelp, key, value, nRight));
+			}
+		}
+	});
+var $elm$core$Dict$insert = F3(
+	function (key, value, dict) {
+		var _v0 = A3($elm$core$Dict$insertHelp, key, value, dict);
+		if ((_v0.$ === 'RBNode_elm_builtin') && (_v0.a.$ === 'Red')) {
+			var _v1 = _v0.a;
+			var k = _v0.b;
+			var v = _v0.c;
+			var l = _v0.d;
+			var r = _v0.e;
+			return A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, k, v, l, r);
+		} else {
+			var x = _v0;
+			return x;
+		}
+	});
 var $elm$browser$Debugger$Main$cachedHistory = function (model) {
 	var _v0 = model.state;
 	if (_v0.$ === 'Running') {
@@ -8275,6 +7969,11 @@ var $elm$browser$Debugger$Main$viewHistoryOptions = function (layout) {
 var $elm$browser$Debugger$Main$SliderJump = function (a) {
 	return {$: 'SliderJump', a: a};
 };
+var $elm$core$Basics$composeR = F3(
+	function (f, g, x) {
+		return g(
+			f(x));
+	});
 var $elm$html$Html$input = _VirtualDom_node('input');
 var $elm$browser$Debugger$Main$isPlaying = function (maybeIndex) {
 	if (maybeIndex.$ === 'Nothing') {
@@ -10850,79 +10549,82 @@ var $elm$core$Basics$never = function (_v0) {
 		continue never;
 	}
 };
-var $elm$core$Platform$Sub$batch = _Platform_batch;
-var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $elm$browser$Browser$sandbox = function (impl) {
-	return _Browser_element(
-		{
-			init: function (_v0) {
-				return _Utils_Tuple2(impl.init, $elm$core$Platform$Cmd$none);
-			},
-			subscriptions: function (_v1) {
-				return $elm$core$Platform$Sub$none;
-			},
-			update: F2(
-				function (msg, model) {
-					return _Utils_Tuple2(
-						A2(impl.update, msg, model),
-						$elm$core$Platform$Cmd$none);
-				}),
-			view: impl.view
-		});
+var $elm$browser$Browser$element = _Browser_element;
+var $author$project$Component$CountersProps = function (a) {
+	return {$: 'CountersProps', a: a};
 };
-var $author$project$Pool$get = F2(
-	function (id, _v0) {
-		var dict = _v0.b;
-		return A2($elm$core$Dict$get, id, dict);
+var $author$project$Element$Component = function (a) {
+	return {$: 'Component', a: a};
+};
+var $author$project$Element$component = function (c) {
+	return $author$project$Element$Component(c);
+};
+var $author$project$Main$app = $author$project$Element$component(
+	$author$project$Component$CountersProps(
+		{}));
+var $author$project$Pool$Pool = F2(
+	function (a, b) {
+		return {$: 'Pool', a: a, b: b};
 	});
-var $elm$core$Debug$log = _Debug_log;
-var $author$project$Pool$remove = F2(
-	function (id, _v0) {
-		var currentId = _v0.a;
-		var dict = _v0.b;
-		return A2(
-			$author$project$Pool$Pool,
-			currentId,
-			A2($elm$core$Dict$remove, id, dict));
+var $author$project$Pool$empty = A2($author$project$Pool$Pool, 1, $elm$core$Dict$empty);
+var $author$project$Main$Component = F3(
+	function (a, b, c) {
+		return {$: 'Component', a: a, b: b, c: c};
 	});
-var $author$project$Main$killTree = F2(
-	function (node, processPool) {
-		killTree:
-		while (true) {
-			var _v1 = A2($elm$core$Debug$log, 'node', node);
-			switch (_v1.$) {
-				case 'Component':
-					var pid = _v1.a;
-					var subTree = _v1.c;
-					var $temp$node = subTree,
-						$temp$processPool = A2($author$project$Pool$remove, pid, processPool);
-					node = $temp$node;
-					processPool = $temp$processPool;
-					continue killTree;
-				case 'Node':
-					var children = _v1.b;
-					return A2($author$project$Main$killTrees, children, processPool);
-				default:
-					return processPool;
-			}
-		}
+var $author$project$Main$Node = F3(
+	function (a, b, c) {
+		return {$: 'Node', a: a, b: b, c: c};
 	});
-var $author$project$Main$killTrees = F2(
-	function (nodes, processPool) {
-		killTrees:
-		while (true) {
-			if (!nodes.b) {
-				return processPool;
-			} else {
-				var node = nodes.a;
-				var restNodes = nodes.b;
-				var $temp$nodes = restNodes,
-					$temp$processPool = A2($author$project$Main$killTree, node, processPool);
-				nodes = $temp$nodes;
-				processPool = $temp$processPool;
-				continue killTrees;
-			}
-		}
+var $author$project$Main$SendToProcess = F2(
+	function (a, b) {
+		return {$: 'SendToProcess', a: a, b: b};
+	});
+var $author$project$Main$Text = function (a) {
+	return {$: 'Text', a: a};
+};
+var $author$project$Pool$alloc = function (_v0) {
+	var currentId = _v0.a;
+	var dict = _v0.b;
+	return _Utils_Tuple2(
+		currentId,
+		A2($author$project$Pool$Pool, currentId + 1, dict));
+};
+var $author$project$Component$ButtonModel = function (a) {
+	return {$: 'ButtonModel', a: a};
+};
+var $author$project$Component$ButtonMsg = function (a) {
+	return {$: 'ButtonMsg', a: a};
+};
+var $author$project$Component$CounterModel = function (a) {
+	return {$: 'CounterModel', a: a};
+};
+var $author$project$Component$CounterMsg = function (a) {
+	return {$: 'CounterMsg', a: a};
+};
+var $author$project$Component$CountersModel = function (a) {
+	return {$: 'CountersModel', a: a};
+};
+var $author$project$Component$CountersMsg = function (a) {
+	return {$: 'CountersMsg', a: a};
+};
+var $author$project$Button$init = F2(
+	function (_v0, _v1) {
+		var label = _v0.label;
+		return _Utils_Tuple2(
+			{label: label},
+			$elm$core$Platform$Cmd$none);
+	});
+var $author$project$Counter$init = F2(
+	function (_v0, toSelf) {
+		var startValue = _v0.startValue;
+		return _Utils_Tuple2(startValue, $elm$core$Platform$Cmd$none);
+	});
+var $author$project$Counters$init = F2(
+	function (_v0, _v1) {
+		return _Utils_Tuple2(
+			_List_fromArray(
+				[1]),
+			$elm$core$Platform$Cmd$none);
 	});
 var $elm$core$Tuple$mapFirst = F2(
 	function (func, _v0) {
@@ -10931,6 +10633,377 @@ var $elm$core$Tuple$mapFirst = F2(
 		return _Utils_Tuple2(
 			func(x),
 			y);
+	});
+var $author$project$Component$init = F2(
+	function (c, toSelf) {
+		switch (c.$) {
+			case 'CountersProps':
+				var props = c.a;
+				return A2(
+					$elm$core$Tuple$mapFirst,
+					$author$project$Component$CountersModel,
+					A2(
+						$author$project$Counters$init,
+						props,
+						A2($elm$core$Basics$composeR, $author$project$Component$CountersMsg, toSelf)));
+			case 'CounterProps':
+				var props = c.a;
+				return A2(
+					$elm$core$Tuple$mapFirst,
+					$author$project$Component$CounterModel,
+					A2(
+						$author$project$Counter$init,
+						props,
+						A2($elm$core$Basics$composeR, $author$project$Component$CounterMsg, toSelf)));
+			default:
+				var props = c.a;
+				return A2(
+					$elm$core$Tuple$mapFirst,
+					$author$project$Component$ButtonModel,
+					A2(
+						$author$project$Button$init,
+						props,
+						A2($elm$core$Basics$composeR, $author$project$Component$ButtonMsg, toSelf)));
+		}
+	});
+var $author$project$Pool$replace = F3(
+	function (id, process, _v0) {
+		var currentId = _v0.a;
+		var dict = _v0.b;
+		return A2(
+			$author$project$Pool$Pool,
+			currentId,
+			A3($elm$core$Dict$insert, id, process, dict));
+	});
+var $author$project$Component$ButtonProps = function (a) {
+	return {$: 'ButtonProps', a: a};
+};
+var $author$project$Component$CounterProps = function (a) {
+	return {$: 'CounterProps', a: a};
+};
+var $author$project$Component$all = {
+	button: A2($elm$core$Basics$composeR, $author$project$Component$ButtonProps, $author$project$Element$Component),
+	counter: A2($elm$core$Basics$composeR, $author$project$Component$CounterProps, $author$project$Element$Component),
+	counters: A2($elm$core$Basics$composeR, $author$project$Component$CountersProps, $author$project$Element$Component)
+};
+var $author$project$Element$Text = function (a) {
+	return {$: 'Text', a: a};
+};
+var $author$project$Element$none = $author$project$Element$Text('');
+var $author$project$Button$OnClick = {$: 'OnClick'};
+var $author$project$Element$Node = F3(
+	function (a, b, c) {
+		return {$: 'Node', a: a, b: b, c: c};
+	});
+var $author$project$Element$button = F2(
+	function (attributes, children) {
+		return A3($author$project$Element$Node, 'button', attributes, children);
+	});
+var $author$project$Element$Events$onClick = $elm$html$Html$Events$onClick;
+var $author$project$Element$text = $author$project$Element$Text;
+var $author$project$Button$view = F3(
+	function (_v0, toSelf, _v1) {
+		var label = _v1.label;
+		return A2(
+			$author$project$Element$button,
+			_List_fromArray(
+				[
+					$author$project$Element$Events$onClick(
+					toSelf($author$project$Button$OnClick))
+				]),
+			_List_fromArray(
+				[
+					$author$project$Element$text(label)
+				]));
+	});
+var $author$project$Counter$Decrement = {$: 'Decrement'};
+var $author$project$Counter$Increment = {$: 'Increment'};
+var $author$project$Element$div = F2(
+	function (attributes, children) {
+		return A3($author$project$Element$Node, 'div', attributes, children);
+	});
+var $author$project$Counter$view = F3(
+	function (_v0, toSelf, model) {
+		var button = _v0.button;
+		return A2(
+			$author$project$Element$div,
+			_List_Nil,
+			_List_fromArray(
+				[
+					button(
+					{
+						label: 'Decrement',
+						onClick: toSelf($author$project$Counter$Decrement)
+					}),
+					$author$project$Element$text(
+					$elm$core$String$fromInt(model)),
+					button(
+					{
+						label: 'Increment',
+						onClick: toSelf($author$project$Counter$Increment)
+					})
+				]));
+	});
+var $author$project$Counters$CounterChanged = F2(
+	function (a, b) {
+		return {$: 'CounterChanged', a: a, b: b};
+	});
+var $author$project$Counters$Decrement = {$: 'Decrement'};
+var $author$project$Counters$Increment = {$: 'Increment'};
+var $author$project$Counters$view = F3(
+	function (_v0, toSelf, model) {
+		var button = _v0.button;
+		var counter = _v0.counter;
+		return A2(
+			$author$project$Element$div,
+			_List_Nil,
+			_List_fromArray(
+				[
+					button(
+					{
+						label: 'Decrement',
+						onClick: toSelf($author$project$Counters$Decrement)
+					}),
+					button(
+					{
+						label: 'Increment',
+						onClick: toSelf($author$project$Counters$Increment)
+					}),
+					A2(
+					$author$project$Element$div,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$author$project$Element$text('Sum of all counters'),
+							$author$project$Element$text(
+							$elm$core$String$fromInt(
+								A3($elm$core$List$foldl, $elm$core$Basics$add, 0, model)))
+						])),
+					A2(
+					$author$project$Element$div,
+					_List_Nil,
+					A2(
+						$elm$core$List$indexedMap,
+						F2(
+							function (i, count) {
+								return counter(
+									{
+										onChange: A2(
+											$elm$core$Basics$composeR,
+											$author$project$Counters$CounterChanged(i),
+											toSelf),
+										startValue: count
+									});
+							}),
+						model))
+				]));
+	});
+var $author$project$Component$view = F3(
+	function (props, toSelf, model) {
+		var _v0 = _Utils_Tuple2(props, model);
+		_v0$3:
+		while (true) {
+			switch (_v0.a.$) {
+				case 'CountersProps':
+					if (_v0.b.$ === 'CountersModel') {
+						var subModel = _v0.b.a;
+						return A3(
+							$author$project$Counters$view,
+							$author$project$Component$all,
+							A2($elm$core$Basics$composeR, $author$project$Component$CountersMsg, toSelf),
+							subModel);
+					} else {
+						break _v0$3;
+					}
+				case 'CounterProps':
+					if (_v0.b.$ === 'CounterModel') {
+						var subModel = _v0.b.a;
+						return A3(
+							$author$project$Counter$view,
+							$author$project$Component$all,
+							A2($elm$core$Basics$composeR, $author$project$Component$CounterMsg, toSelf),
+							subModel);
+					} else {
+						break _v0$3;
+					}
+				default:
+					if (_v0.b.$ === 'ButtonModel') {
+						var subModel = _v0.b.a;
+						return A3(
+							$author$project$Button$view,
+							$author$project$Component$all,
+							A2($elm$core$Basics$composeR, $author$project$Component$ButtonMsg, toSelf),
+							subModel);
+					} else {
+						break _v0$3;
+					}
+			}
+		}
+		return $author$project$Element$none;
+	});
+var $author$project$Main$initChildren = F2(
+	function (children, processes) {
+		return A3(
+			$elm$core$List$foldl,
+			F2(
+				function (el, _v5) {
+					var kids = _v5.a;
+					var accProcesses = _v5.b;
+					var cmd = _v5.c;
+					var _v6 = A2($author$project$Main$initElement, el, accProcesses);
+					var tree = _v6.a;
+					var accProcesses_ = _v6.b;
+					var cmd_ = _v6.c;
+					return _Utils_Tuple3(
+						_Utils_ap(
+							kids,
+							_List_fromArray(
+								[tree])),
+						accProcesses_,
+						$elm$core$Platform$Cmd$batch(
+							_List_fromArray(
+								[cmd, cmd_])));
+				}),
+			_Utils_Tuple3(_List_Nil, processes, $elm$core$Platform$Cmd$none),
+			children);
+	});
+var $author$project$Main$initElement = F2(
+	function (element, processes) {
+		switch (element.$) {
+			case 'Component':
+				var props = element.a;
+				var _v1 = $author$project$Pool$alloc(processes);
+				var pid = _v1.a;
+				var processes1 = _v1.b;
+				var toSelf = $author$project$Main$SendToProcess(pid);
+				var _v2 = A2($author$project$Component$init, props, toSelf);
+				var model = _v2.a;
+				var cmd = _v2.b;
+				var processes2 = A3($author$project$Pool$replace, pid, model, processes1);
+				var _v3 = A2(
+					$author$project$Main$initElement,
+					A3($author$project$Component$view, props, toSelf, model),
+					processes2);
+				var tree = _v3.a;
+				var processes3 = _v3.b;
+				var cmds = _v3.c;
+				return _Utils_Tuple3(
+					A3($author$project$Main$Component, pid, props, tree),
+					processes3,
+					$elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[cmd, cmds])));
+			case 'Node':
+				var t = element.a;
+				var attributes = element.b;
+				var children = element.c;
+				var _v4 = A2($author$project$Main$initChildren, children, processes);
+				var tree = _v4.a;
+				var processes1 = _v4.b;
+				var cmd = _v4.c;
+				return _Utils_Tuple3(
+					A3($author$project$Main$Node, t, attributes, tree),
+					processes1,
+					cmd);
+			default:
+				var text = element.a;
+				return _Utils_Tuple3(
+					$author$project$Main$Text(text),
+					processes,
+					$elm$core$Platform$Cmd$none);
+		}
+	});
+var $author$project$Main$init = function () {
+	var _v0 = A2($author$project$Main$initElement, $author$project$Main$app, $author$project$Pool$empty);
+	var prevTree = _v0.a;
+	var processes = _v0.b;
+	var cmd = _v0.c;
+	return _Utils_Tuple2(
+		{prevTree: prevTree, processes: processes},
+		cmd);
+}();
+var $elm$core$Platform$Sub$batch = _Platform_batch;
+var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
+var $author$project$Pool$get = F2(
+	function (id, _v0) {
+		var dict = _v0.b;
+		return A2($elm$core$Dict$get, id, dict);
+	});
+var $elm$core$Debug$log = _Debug_log;
+var $author$project$Return$map = F2(
+	function (f, _v0) {
+		var m = _v0.a;
+		var c = _v0.b;
+		return _Utils_Tuple2(
+			f(m),
+			c);
+	});
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $author$project$Main$treeFindPid = F2(
+	function (pid, tree) {
+		treeFindPid:
+		while (true) {
+			switch (tree.$) {
+				case 'Component':
+					var subPid = tree.a;
+					var props = tree.b;
+					var subTree = tree.c;
+					if (_Utils_eq(pid, subPid)) {
+						return $elm$core$Maybe$Just(props);
+					} else {
+						var $temp$pid = pid,
+							$temp$tree = subTree;
+						pid = $temp$pid;
+						tree = $temp$tree;
+						continue treeFindPid;
+					}
+				case 'Node':
+					var subTrees = tree.c;
+					return $elm$core$List$head(
+						A2(
+							$elm$core$List$filterMap,
+							$author$project$Main$treeFindPid(pid),
+							subTrees));
+				default:
+					return $elm$core$Maybe$Nothing;
+			}
+		}
+	});
+var $author$project$Cmd$send = function (a) {
+	return A2(
+		$elm$core$Task$perform,
+		$elm$core$Basics$identity,
+		$elm$core$Task$succeed(a));
+};
+var $author$project$Button$update = F4(
+	function (_v0, _v1, msg, model) {
+		var onClick = _v0.onClick;
+		return _Utils_Tuple2(
+			model,
+			$author$project$Cmd$send(onClick));
+	});
+var $author$project$Counter$update = F4(
+	function (_v0, toSelf, msg, model) {
+		var onChange = _v0.onChange;
+		if (msg.$ === 'Increment') {
+			return _Utils_Tuple2(
+				model + 1,
+				$author$project$Cmd$send(
+					onChange(model + 1)));
+		} else {
+			return _Utils_Tuple2(
+				model - 1,
+				$author$project$Cmd$send(
+					onChange(model - 1)));
+		}
 	});
 var $elm$core$List$takeReverse = F3(
 	function (n, list, kept) {
@@ -11058,407 +11131,197 @@ var $elm$core$List$take = F2(
 	function (n, list) {
 		return A3($elm$core$List$takeFast, 0, n, list);
 	});
-var $elm$core$Debug$todo = _Debug_todo;
-var $elm$core$Tuple$pair = F2(
-	function (a, b) {
-		return _Utils_Tuple2(a, b);
-	});
-var $elm_community$list_extra$List$Extra$zip = $elm$core$List$map2($elm$core$Tuple$pair);
-var $author$project$Main$diffChildren = F3(
-	function (elements, trees, processPool) {
-		if (_Utils_cmp(
-			$elm$core$List$length(elements),
-			$elm$core$List$length(trees)) > 0) {
-			var _v9 = A3(
-				$author$project$Main$diffChildren,
-				A2(
-					$elm$core$List$take,
-					$elm$core$List$length(trees),
-					elements),
-				trees,
-				processPool);
-			var children = _v9.a;
-			var processPool_ = _v9.b;
-			var _v10 = A2(
-				$author$project$Main$initChildren,
-				A2(
-					$elm$core$List$drop,
-					$elm$core$List$length(trees),
-					elements),
-				processPool_);
-			var restChildren = _v10.a;
-			var processPool__ = _v10.b;
-			return _Utils_Tuple2(
-				_Utils_ap(children, restChildren),
-				processPool__);
+var $elm_community$list_extra$List$Extra$updateAt = F3(
+	function (index, fn, list) {
+		if (index < 0) {
+			return list;
 		} else {
-			if (_Utils_cmp(
-				$elm$core$List$length(elements),
-				$elm$core$List$length(trees)) < 0) {
-				var _v11 = A3(
-					$author$project$Main$diffChildren,
-					elements,
+			var tail = A2($elm$core$List$drop, index, list);
+			var head = A2($elm$core$List$take, index, list);
+			if (tail.b) {
+				var x = tail.a;
+				var xs = tail.b;
+				return _Utils_ap(
+					head,
 					A2(
-						$elm$core$List$take,
-						$elm$core$List$length(elements),
-						trees),
-					processPool);
-				var children = _v11.a;
-				var processPool_ = _v11.b;
-				return _Utils_Tuple2(
-					children,
-					A2(
-						$author$project$Main$killTrees,
-						A2(
-							$elm$core$List$drop,
-							$elm$core$List$length(elements),
-							trees),
-						processPool_));
+						$elm$core$List$cons,
+						fn(x),
+						xs));
 			} else {
-				return A3(
-					$elm$core$List$foldl,
-					F2(
-						function (_v12, _v13) {
-							var e = _v12.a;
-							var t = _v12.b;
-							var kids = _v13.a;
-							var p = _v13.b;
-							var _v14 = A3($author$project$Main$diffElement, e, t, p);
-							var e_ = _v14.a;
-							var p_ = _v14.b;
-							return _Utils_Tuple2(
-								_Utils_ap(
-									kids,
-									_List_fromArray(
-										[e_])),
-								p_);
-						}),
-					_Utils_Tuple2(_List_Nil, processPool),
-					A2($elm_community$list_extra$List$Extra$zip, elements, trees));
+				return list;
 			}
 		}
 	});
-var $author$project$Main$diffElement = F3(
-	function (element, tree, processPool) {
-		var _v0 = _Utils_Tuple2(element, tree);
+var $elm_community$list_extra$List$Extra$setAt = F2(
+	function (index, value) {
+		return A2(
+			$elm_community$list_extra$List$Extra$updateAt,
+			index,
+			$elm$core$Basics$always(value));
+	});
+var $author$project$Counters$update = F4(
+	function (_v0, _v1, msg, model) {
+		switch (msg.$) {
+			case 'Increment':
+				return _Utils_Tuple2(
+					_Utils_ap(
+						model,
+						_List_fromArray(
+							[0])),
+					$elm$core$Platform$Cmd$none);
+			case 'Decrement':
+				return _Utils_Tuple2(
+					A2(
+						$elm$core$List$take,
+						$elm$core$List$length(model) - 1,
+						model),
+					$elm$core$Platform$Cmd$none);
+			default:
+				var id = msg.a;
+				var count = msg.b;
+				return _Utils_Tuple2(
+					A3($elm_community$list_extra$List$Extra$setAt, id, count, model),
+					$elm$core$Platform$Cmd$none);
+		}
+	});
+var $author$project$Component$update = F4(
+	function (props, toSelf, msg, model) {
+		var _v0 = A2(
+			$elm$core$Debug$log,
+			'Component.update',
+			_Utils_Tuple3(props, msg, model));
 		_v0$3:
 		while (true) {
 			switch (_v0.a.$) {
-				case 'Component':
-					if (_v0.b.$ === 'Component') {
-						var component = _v0.a.a;
-						var _v1 = _v0.b;
-						var pid = _v1.a;
-						var key = _v1.b;
-						var subTree = _v1.c;
-						if (_Utils_eq(
-							$author$project$Component$toKey(component),
-							key)) {
-							switch (component.$) {
-								case 'Button':
-									var props = component.a;
-									return A2(
-										$elm$core$Tuple$mapFirst,
-										A2($author$project$Main$Component, pid, key),
-										A3(
-											$author$project$Main$diffElement,
-											A2($author$project$Button$view, $author$project$Main$components, props),
-											subTree,
-											processPool));
-								case 'Counter':
-									var _v3 = A2($author$project$Pool$get, pid, processPool);
-									if ((_v3.$ === 'Just') && (_v3.a.$ === 'CounterModel')) {
-										var model = _v3.a.a;
-										return A2(
-											$elm$core$Tuple$mapFirst,
-											A2($author$project$Main$Component, pid, key),
-											A3(
-												$author$project$Main$diffElement,
-												A3(
-													$author$project$Counter$view,
-													$author$project$Main$components,
-													A2(
-														$elm$core$Basics$composeR,
-														$author$project$Main$CounterMsg,
-														$author$project$Main$SendToProcess(pid)),
-													model),
-												subTree,
-												processPool));
-									} else {
-										return _Debug_todo(
-											'Main',
-											{
-												start: {line: 255, column: 33},
-												end: {line: 255, column: 43}
-											})('should never happen');
-									}
-								default:
-									var _v4 = A2($author$project$Pool$get, pid, processPool);
-									if ((_v4.$ === 'Just') && (_v4.a.$ === 'CountersModel')) {
-										var model = _v4.a.a;
-										return A2(
-											$elm$core$Tuple$mapFirst,
-											A2($author$project$Main$Component, pid, key),
-											A3(
-												$author$project$Main$diffElement,
-												A3(
-													$author$project$Counters$view,
-													$author$project$Main$components,
-													A2(
-														$elm$core$Basics$composeR,
-														$author$project$Main$CountersMsg,
-														$author$project$Main$SendToProcess(pid)),
-													model),
-												subTree,
-												processPool));
-									} else {
-										return _Debug_todo(
-											'Main',
-											{
-												start: {line: 264, column: 33},
-												end: {line: 264, column: 43}
-											})('should never happen');
-									}
-							}
-						} else {
-							return A2(
-								$author$project$Main$initElement,
-								element,
-								A2($author$project$Main$killTree, tree, processPool));
-						}
+				case 'CountersProps':
+					if ((_v0.b.$ === 'CountersMsg') && (_v0.c.$ === 'CountersModel')) {
+						var subProps = _v0.a.a;
+						var subMsg = _v0.b.a;
+						var subModel = _v0.c.a;
+						return A2(
+							$author$project$Return$map,
+							$author$project$Component$CountersModel,
+							A4(
+								$author$project$Counters$update,
+								subProps,
+								A2($elm$core$Basics$composeR, $author$project$Component$CountersMsg, toSelf),
+								subMsg,
+								subModel));
 					} else {
 						break _v0$3;
 					}
-				case 'Node':
-					if (_v0.b.$ === 'Node') {
-						var _v5 = _v0.a;
-						var key = _v5.a;
-						var attributes = _v5.b;
-						var children = _v5.c;
-						var _v6 = _v0.b;
-						var key_ = _v6.a;
-						var subTrees = _v6.b;
-						if (_Utils_eq(key, key_)) {
-							var _v7 = A3($author$project$Main$diffChildren, children, subTrees, processPool);
-							var subTrees_ = _v7.a;
-							var processPool_ = _v7.b;
-							return _Utils_Tuple2(
-								A2($author$project$Main$Node, key, subTrees_),
-								processPool_);
-						} else {
-							return A2(
-								$author$project$Main$initElement,
-								element,
-								A2($author$project$Main$killTree, tree, processPool));
-						}
+				case 'CounterProps':
+					if ((_v0.b.$ === 'CounterMsg') && (_v0.c.$ === 'CounterModel')) {
+						var subProps = _v0.a.a;
+						var subMsg = _v0.b.a;
+						var subModel = _v0.c.a;
+						return A2(
+							$author$project$Return$map,
+							$author$project$Component$CounterModel,
+							A4(
+								$author$project$Counter$update,
+								subProps,
+								A2($elm$core$Basics$composeR, $author$project$Component$CounterMsg, toSelf),
+								subMsg,
+								subModel));
 					} else {
 						break _v0$3;
 					}
 				default:
-					if (_v0.b.$ === 'Text') {
-						var s = _v0.a.a;
-						var _v8 = _v0.b;
-						return _Utils_Tuple2($author$project$Main$Text, processPool);
+					if ((_v0.b.$ === 'ButtonMsg') && (_v0.c.$ === 'ButtonModel')) {
+						var subProps = _v0.a.a;
+						var subMsg = _v0.b.a;
+						var subModel = _v0.c.a;
+						return A2(
+							$author$project$Return$map,
+							$author$project$Component$ButtonModel,
+							A4(
+								$author$project$Button$update,
+								subProps,
+								A2($elm$core$Basics$composeR, $author$project$Component$ButtonMsg, toSelf),
+								subMsg,
+								subModel));
 					} else {
 						break _v0$3;
 					}
 			}
 		}
-		return A2(
-			$author$project$Main$initElement,
-			element,
-			A2($author$project$Main$killTree, tree, processPool));
-	});
-var $author$project$Main$diff = function (_v0) {
-	var prevTree = _v0.prevTree;
-	var processes = _v0.processes;
-	var _v1 = A3($author$project$Main$diffElement, $author$project$Main$app, prevTree, processes);
-	var newPrevTree = _v1.a;
-	var newProcesses = _v1.b;
-	return {prevTree: newPrevTree, processes: newProcesses};
-};
-var $author$project$Pool$replace = F3(
-	function (id, process, _v0) {
-		var currentId = _v0.a;
-		var dict = _v0.b;
-		return A2(
-			$author$project$Pool$Pool,
-			currentId,
-			A3($elm$core$Dict$insert, id, process, dict));
-	});
-var $author$project$Counter$update = F2(
-	function (msg, model) {
-		if (msg.$ === 'Increment') {
-			return model + 1;
-		} else {
-			return model - 1;
-		}
-	});
-var $author$project$Counters$update = F2(
-	function (msg, model) {
-		if (msg.$ === 'Increment') {
-			return model + 1;
-		} else {
-			return model - 1;
-		}
+		return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 	});
 var $author$project$Main$update = F2(
 	function (msg, model) {
-		if (msg.$ === 'SendToProcess') {
-			var pid = msg.a;
-			var processMsg = msg.b;
-			var _v1 = _Utils_Tuple2(
-				processMsg,
-				A2($author$project$Pool$get, pid, model.processes));
-			_v1$2:
-			while (true) {
-				if (_v1.a.$ === 'CounterMsg') {
-					if ((_v1.b.$ === 'Just') && (_v1.b.a.$ === 'CounterModel')) {
-						var subMsg = _v1.a.a;
-						var subModel = _v1.b.a.a;
-						return $author$project$Main$diff(
-							_Utils_update(
-								model,
-								{
-									processes: A3(
-										$author$project$Pool$replace,
-										pid,
-										$author$project$Main$CounterModel(
-											A2($author$project$Counter$update, subMsg, subModel)),
-										model.processes)
-								}));
-					} else {
-						break _v1$2;
-					}
-				} else {
-					if ((_v1.b.$ === 'Just') && (_v1.b.a.$ === 'CountersModel')) {
-						var subMsg = _v1.a.a;
-						var subModel = _v1.b.a.a;
-						return $author$project$Main$diff(
-							_Utils_update(
-								model,
-								{
-									processes: A3(
-										$author$project$Pool$replace,
-										pid,
-										$author$project$Main$CountersModel(
-											A2($author$project$Counters$update, subMsg, subModel)),
-										model.processes)
-								}));
-					} else {
-						break _v1$2;
-					}
-				}
+		var _v0 = A2($elm$core$Debug$log, 'Main.update', msg);
+		if (_v0.$ === 'SendToProcess') {
+			var pid = _v0.a;
+			var componentMsg = _v0.b;
+			var toSelf = $author$project$Main$SendToProcess(pid);
+			var maybeComponentProps = A2($author$project$Main$treeFindPid, pid, model.prevTree);
+			var maybeComponentModel = A2($author$project$Pool$get, pid, model.processes);
+			var _v1 = _Utils_Tuple2(maybeComponentModel, maybeComponentProps);
+			if ((_v1.a.$ === 'Just') && (_v1.b.$ === 'Just')) {
+				var componentModel = _v1.a.a;
+				var componentProps = _v1.b.a;
+				return A2(
+					$author$project$Return$map,
+					function (process) {
+						return _Utils_update(
+							model,
+							{
+								processes: A3($author$project$Pool$replace, pid, process, model.processes)
+							});
+					},
+					A4($author$project$Component$update, componentProps, toSelf, componentMsg, componentModel));
+			} else {
+				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 			}
-			return model;
 		} else {
-			return model;
+			return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 		}
 	});
 var $author$project$Main$view = function (_v0) {
 	var prevTree = _v0.prevTree;
 	var processes = _v0.processes;
-	var go = F2(
-		function (element, tree) {
-			go:
-			while (true) {
-				var _v1 = _Utils_Tuple2(element, tree);
-				_v1$3:
-				while (true) {
-					switch (_v1.a.$) {
-						case 'Component':
-							if (_v1.b.$ === 'Component') {
-								var component = _v1.a.a;
-								var _v2 = _v1.b;
-								var pid = _v2.a;
-								var key = _v2.b;
-								var subTree = _v2.c;
-								switch (component.$) {
-									case 'Button':
-										var props = component.a;
-										var $temp$element = A2($author$project$Button$view, $author$project$Main$components, props),
-											$temp$tree = subTree;
-										element = $temp$element;
-										tree = $temp$tree;
-										continue go;
-									case 'Counter':
-										var _v4 = A2($author$project$Pool$get, pid, processes);
-										if ((_v4.$ === 'Just') && (_v4.a.$ === 'CounterModel')) {
-											var model = _v4.a.a;
-											var $temp$element = A3(
-												$author$project$Counter$view,
-												$author$project$Main$components,
-												A2(
-													$elm$core$Basics$composeR,
-													$author$project$Main$CounterMsg,
-													$author$project$Main$SendToProcess(pid)),
-												model),
-												$temp$tree = subTree;
-											element = $temp$element;
-											tree = $temp$tree;
-											continue go;
-										} else {
-											return $elm$html$Html$text('');
-										}
-									default:
-										var _v5 = A2($author$project$Pool$get, pid, processes);
-										if ((_v5.$ === 'Just') && (_v5.a.$ === 'CountersModel')) {
-											var model = _v5.a.a;
-											var $temp$element = A3(
-												$author$project$Counters$view,
-												$author$project$Main$components,
-												A2(
-													$elm$core$Basics$composeR,
-													$author$project$Main$CountersMsg,
-													$author$project$Main$SendToProcess(pid)),
-												model),
-												$temp$tree = subTree;
-											element = $temp$element;
-											tree = $temp$tree;
-											continue go;
-										} else {
-											return $elm$html$Html$text('');
-										}
-								}
-							} else {
-								break _v1$3;
-							}
-						case 'Node':
-							if (_v1.b.$ === 'Node') {
-								var _v6 = _v1.a;
-								var t = _v6.a;
-								var attributes = _v6.b;
-								var children = _v6.c;
-								var _v7 = _v1.b;
-								var key = _v7.a;
-								var subTrees = _v7.b;
-								return A3(
-									$elm$html$Html$node,
-									t,
-									attributes,
-									A3($elm$core$List$map2, go, children, subTrees));
-							} else {
-								break _v1$3;
-							}
-						default:
-							if (_v1.b.$ === 'Text') {
-								var s = _v1.a.a;
-								var _v8 = _v1.b;
-								return $elm$html$Html$text(s);
-							} else {
-								break _v1$3;
-							}
-					}
-				}
-				return $elm$html$Html$text('');
+	var go = function (tree) {
+		go:
+		while (true) {
+			switch (tree.$) {
+				case 'Component':
+					var pid = tree.a;
+					var props = tree.b;
+					var subTree = tree.c;
+					var $temp$tree = subTree;
+					tree = $temp$tree;
+					continue go;
+				case 'Node':
+					var key = tree.a;
+					var attributes = tree.b;
+					var subTrees = tree.c;
+					return A3(
+						$elm$html$Html$node,
+						key,
+						attributes,
+						A2($elm$core$List$map, go, subTrees));
+				default:
+					var s = tree.a;
+					return $elm$html$Html$text(s);
 			}
-		});
-	return A2(go, $author$project$Main$app, prevTree);
+		}
+	};
+	return go(prevTree);
 };
-var $author$project$Main$main = $elm$browser$Browser$sandbox(
-	{init: $author$project$Main$init, update: $author$project$Main$update, view: $author$project$Main$view});
+var $author$project$Main$main = $elm$browser$Browser$element(
+	{
+		init: function (_v0) {
+			return $author$project$Main$init;
+		},
+		subscriptions: function (_v1) {
+			return $elm$core$Platform$Sub$none;
+		},
+		update: $author$project$Main$update,
+		view: $author$project$Main$view
+	});
 _Platform_export({'Main':{'init':$author$project$Main$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Main.Msg","aliases":{},"unions":{"Main.Msg":{"args":[],"tags":{"SendToProcess":["Basics.Int","Main.ProcessMsg"],"NoOp":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"Main.ProcessMsg":{"args":[],"tags":{"CounterMsg":["Counter.Msg"],"CountersMsg":["Counters.Msg"]}},"Counter.Msg":{"args":[],"tags":{"Increment":[],"Decrement":[]}},"Counters.Msg":{"args":[],"tags":{"Increment":[],"Decrement":[]}}}}})}});}(this));
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Main.Msg","aliases":{},"unions":{"Main.Msg":{"args":[],"tags":{"SendToProcess":["Basics.Int","Component.Msg"],"NoOp":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"Component.Msg":{"args":[],"tags":{"CounterMsg":["Counter.Msg"],"CountersMsg":["Counters.Msg"],"ButtonMsg":["Button.Msg"]}},"Button.Msg":{"args":[],"tags":{"OnClick":[]}},"Counter.Msg":{"args":[],"tags":{"Increment":[],"Decrement":[]}},"Counters.Msg":{"args":[],"tags":{"Increment":[],"Decrement":[],"CounterChanged":["Basics.Int","Basics.Int"]}}}}})}});}(this));
 
   var app = Elm.Main.init({ node: document.getElementById("elm") });
 }

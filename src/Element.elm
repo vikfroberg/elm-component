@@ -24,5 +24,5 @@ div attributes children =
 button attributes children =
     Node "button" attributes children
 
-component component_ =
-    Component component_
+component c =
+    Component c

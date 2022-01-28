@@ -1,6 +1,7 @@
 module Counter exposing (..)
 
 import Element exposing (Element)
+import Cmd
 
 
 type alias Model =
@@ -12,27 +13,36 @@ type Msg
     | Decrement
 
 
-init : Model
-init =
-    0
+type alias Props msg =
+    { onChange : Int -> msg
+    , startValue : Int
+    }
 
 
--- TODO: Call all processes with the global store when changed?
--- No need to keep track of sending messages back.
--- dataChanged : globalDataStore -> ( Model, Cmd msg )
---     case Dict.get model.id globalDataStore of
---         Just fanns -> { model | data = fanns }
---         Nothing -> ({ model | data = laddar }, Cmd.send fråga efterData )
+init : Props msg -> (Msg -> msg) -> ( Model, Cmd msg )
+init { startValue } toSelf =
+    ( startValue
+    , Cmd.none
+    )
 
 
-update : Msg -> Model -> Model
-update msg model =
+propsChanged : Props msg -> Props msg -> (Msg -> msg) -> Model -> ( Model, Cmd msg )
+propsChanged prevProps nextProps toSelf model =
+    ( model, Cmd.none )
+
+
+update : Props msg -> (Msg -> msg) -> Msg -> Model -> ( Model, Cmd msg )
+update { onChange } toSelf msg model =
     case msg of
         Increment ->
-            model + 1
+            ( model + 1
+            , Cmd.send <| onChange (model + 1)
+            )
 
         Decrement ->
-            model - 1
+            ( model - 1
+            , Cmd.send <| onChange (model - 1)
+            )
 
 
 view :
@@ -47,5 +57,5 @@ view { button } toSelf model =
         []
         [ button { onClick = toSelf Decrement, label = "Decrement" }
         , Element.text (String.fromInt model)
-        , button { onClick = toSelf Increment, label = "Increment" }
+        , button { onClick = toSelf Increment, label = "Increment " ++ String.fromInt model }
         ]

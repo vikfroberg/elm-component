@@ -1,6 +1,7 @@
 module Counter exposing (..)
 
 import Element exposing (Element)
+import Html
 import Cmd
 
 
@@ -47,11 +48,11 @@ update { onChange } toSelf msg model =
 
 view :
     { components
-        | button : { onClick : msg, label : String } -> Element msg component
+        | button : { onClick : msg, label : String } -> Element (Html.Attribute msg) component
     }
     -> (Msg -> msg)
     -> Model
-    -> Element msg component
+    -> Element (Html.Attribute msg) component
 view { button } toSelf model =
     Element.div
         []

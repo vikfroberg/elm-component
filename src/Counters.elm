@@ -1,6 +1,7 @@
 module Counters exposing (..)
 
 import Element exposing (Element)
+import Html
 import List.Extra
 
 
@@ -51,12 +52,12 @@ update _ _ msg model =
 
 view :
     { components
-        | button : { onClick : msg, label : String } -> Element msg component
-        , counter : { onChange : Int -> msg, startValue : Int } -> Element msg component
+        | button : { onClick : msg, label : String } -> Element (Html.Attribute msg) component
+        , counter : { onChange : Int -> msg, startValue : Int } -> Element (Html.Attribute msg) component
     }
     -> (Msg -> msg)
     -> Model
-    -> Element msg component
+    -> Element (Html.Attribute msg) component
 view { button, counter } toSelf model =
     Element.div
         []

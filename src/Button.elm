@@ -1,7 +1,8 @@
 module Button exposing (..)
 
 import Element exposing (Element)
-import Element.Events
+import Html.Events as HE
+import Html
 import Cmd
 
 
@@ -52,8 +53,8 @@ view :
     components
     -> (Msg -> msg)
     -> Model
-    -> Element msg component
+    -> Element (Html.Attribute msg) component
 view _ toSelf { label } =
     Element.button
-        [ Element.Events.onClick <| toSelf OnClick ]
+        [ HE.onClick <| toSelf OnClick ]
         [ Element.text label ]

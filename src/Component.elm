@@ -1,6 +1,7 @@
 module Component exposing (..)
 
 import Element exposing (Element)
+import Html
 import Counters
 import Counter
 import Button
@@ -26,12 +27,13 @@ type Msg
 
 
 all =
-    { counters = CountersProps >> Element.Component
-    , counter = CounterProps >> Element.Component
-    , button = ButtonProps >> Element.Component
+    { counters = CountersProps >> Element.component
+    , counter = CounterProps >> Element.component
+    , button = ButtonProps >> Element.component
     }
 
 
+isEqual : Props msg -> Props msg -> Bool
 isEqual a b =
     case ( a, b ) of
         ( CountersProps _, CountersProps _ ) ->
@@ -47,41 +49,44 @@ isEqual a b =
             False
 
 
-init c toSelf =
-    case c of
-        CountersProps props ->
-            Counters.init props (CountersMsg >> toSelf)
+init : Props msg -> (Msg -> msg) -> ( Model, Cmd msg )
+init props toSelf =
+    case props of
+        CountersProps subProps ->
+            Counters.init subProps (CountersMsg >> toSelf)
                 |> Tuple.mapFirst CountersModel
 
-        CounterProps props ->
-            Counter.init props (CounterMsg >> toSelf)
+        CounterProps subProps ->
+            Counter.init subProps (CounterMsg >> toSelf)
                 |> Tuple.mapFirst CounterModel
 
-        ButtonProps props ->
-            Button.init props (ButtonMsg >> toSelf)
+        ButtonProps subProps ->
+            Button.init subProps (ButtonMsg >> toSelf)
                 |> Tuple.mapFirst ButtonModel
 
 
+propsChanged : Props msg -> Props msg -> (Msg -> msg) -> Model -> ( Model, Cmd msg )
 propsChanged prevProps nextProps toSelf model =
     case ( prevProps, nextProps, model ) of
-        ( CountersProps prevProps_, CountersProps nextProps_, CountersModel model_ ) ->
-            Counters.propsChanged prevProps_ nextProps_ (CountersMsg >> toSelf) model_
+        ( CountersProps subPrevProps, CountersProps subNextProps, CountersModel subModel ) ->
+            Counters.propsChanged subPrevProps subNextProps (CountersMsg >> toSelf) subModel
                 |> Return.map CountersModel
 
-        ( CounterProps prevProps_, CounterProps nextProps_, CounterModel model_ ) ->
-            Counter.propsChanged prevProps_ nextProps_ (CounterMsg >> toSelf) model_
+        ( CounterProps subPrevProps, CounterProps subNextProps, CounterModel subModel ) ->
+            Counter.propsChanged subPrevProps subNextProps (CounterMsg >> toSelf) subModel
                 |> Return.map CounterModel
 
-        ( ButtonProps prevProps_, ButtonProps nextProps_, ButtonModel model_ ) ->
-            Button.propsChanged prevProps_ nextProps_ (ButtonMsg >> toSelf) model_
+        ( ButtonProps subPrevProps, ButtonProps subNextProps, ButtonModel subModel ) ->
+            Button.propsChanged subPrevProps subNextProps (ButtonMsg >> toSelf) subModel
                 |> Return.map ButtonModel
 
         _ ->
             ( model, Cmd.none )
 
 
+update : Props msg -> (Msg -> msg) -> Msg -> Model -> ( Model, Cmd msg )
 update props toSelf msg model =
-    case Debug.log "Component.update" ( props, msg, model ) of
+    case ( props, msg, model ) of
         ( CountersProps subProps, CountersMsg subMsg, CountersModel subModel ) ->
             Counters.update subProps (CountersMsg >> toSelf) subMsg subModel
                 |> Return.map CountersModel
@@ -98,6 +103,8 @@ update props toSelf msg model =
             ( model, Cmd.none )
 
 
+-- TODO: Is it possible to remove Html.Attribute from here?
+view : Props msg -> (Msg -> msg) -> Model -> Element (Html.Attribute msg) (Props msg)
 view props toSelf model =
     case ( props, model ) of
         ( CountersProps _, CountersModel subModel ) ->

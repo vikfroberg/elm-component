@@ -1,28 +1,32 @@
 module Element exposing (..)
 
-import Html exposing (Html)
 
-
-type alias Attribute msg =
-    Html.Attribute msg
-
-
-type Element msg component
+type Element attribute component
     = Text String
-    | Node String (List (Html.Attribute msg)) (List (Element msg component))
+    | Node String (List attribute) (List (Element attribute component))
     | Component component
 
+
+text : String -> Element attribute component
 text =
     Text
 
+
+none : Element attribute component
 none =
     Text ""
 
+
+div : List attribute -> List (Element attribute component) -> Element attribute component
 div attributes children =
     Node "div" attributes children
 
+
+button : List attribute -> List (Element attribute component) -> Element attribute component
 button attributes children =
     Node "button" attributes children
 
-component c =
-    Component c
+
+component : component -> Element attribute component
+component a =
+    Component a
